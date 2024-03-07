@@ -1,4 +1,4 @@
-name: {{ cookiecutter.__project_name }}
+name: harmony-opera-rtc-reproject
 channels:
   - conda-forge
   - nodefaults
