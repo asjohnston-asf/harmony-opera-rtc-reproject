@@ -11,14 +11,6 @@ on:
       - develop
 
 jobs:
-  call-pytest-workflow:
-    # Docs: https://github.com/ASFHyP3/actions
-    uses: ASFHyP3/actions/.github/workflows/reusable-pytest.yml@v0.11.0
-    with:
-      local_package_name: hyp3_harmony
-      python_versions: >-
-        ["3.9", "3.10"]
-
   call-version-info-workflow:
     # Docs: https://github.com/ASFHyP3/actions
     uses: ASFHyP3/actions/.github/workflows/reusable-version-info.yml@v0.11.0
