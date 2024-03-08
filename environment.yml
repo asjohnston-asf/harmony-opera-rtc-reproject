@@ -1,0 +1,11 @@
+name: opera-rtc-reproject
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python>=3.12
+  - pip
+  - gdal
+  - pystac
+  - pip:
+      - harmony-service-lib
