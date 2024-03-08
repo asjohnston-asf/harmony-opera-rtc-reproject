@@ -29,8 +29,8 @@ RUN mkdir -p /worker && chown dockeruser /worker
 USER dockeruser
 WORKDIR /worker
 
-COPY --chown=dockeruser $SERVICE_NAME.py .
+COPY --chown=dockeruser opera-rtc-reproject.py .
 
 # Run the service
-ENTRYPOINT ["python3", "-m", "$SERVICE_NAME"]
+ENTRYPOINT ["python3", "-m", "opera-rtc-reproject"]
 CMD ["-h"]
