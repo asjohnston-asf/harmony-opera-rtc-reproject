@@ -16,7 +16,6 @@ ENV PYTHONDONTWRITEBYTECODE=true
 
 RUN apk add bash build-base gcc g++ gfortran openblas-dev cmake python3 python3-dev libffi-dev netcdf-dev libxml2-dev libxslt-dev libjpeg-turbo-dev zlib-dev hdf5 hdf5-dev gdal-dev gdal-tools
 
-RUN python -m ensurepip --upgrade
 RUN pip3 install gdal numpy netCDF4 matplotlib harmony-service-lib
 
 # Create a new user
