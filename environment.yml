@@ -7,5 +7,6 @@ dependencies:
   - pip
   - gdal
   - pystac
+  - setuptools_scm
   - pip:
       - harmony-service-lib
