@@ -11,12 +11,17 @@ on:
       - develop
 
 jobs:
+  call-version-info-workflow:
+    # Docs: https://github.com/ASFHyP3/actions
+    with:
+      python_version: 3.12
+    uses: ASFHyP3/actions/.github/workflows/reusable-version-info.yml@v0.11.0
 
   call-docker-ghcr-workflow:
     # Docs: https://github.com/ASFHyP3/actions
     uses: ASFHyP3/actions/.github/workflows/reusable-docker-ghcr.yml@v0.11.0
     with:
-      version_tag: ${{ github.sha }}
+      version_tag: ${{ needs.call-version-info-workflow.outputs.version_tag }}
       release_branch: main
       develop_branch: develop
       user: tools-bot
