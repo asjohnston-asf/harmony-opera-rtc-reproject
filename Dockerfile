@@ -1,5 +1,16 @@
 FROM mambaorg/micromamba:latest
 
+# For opencontainers label definitions, see:
+#    https://github.com/opencontainers/image-spec/blob/master/annotations.md
+LABEL org.opencontainers.image.title="Harmony OPERA RTC Reproject"
+LABEL org.opencontainers.image.description="Reproject OPERA RTC"
+LABEL org.opencontainers.image.vendor="Alaska Satellite Facility"
+LABEL org.opencontainers.image.authors="tools-bot <UAF-asf-apd@alaska.edu>"
+LABEL org.opencontainers.image.licenses="BSD-3-Clause"
+LABEL org.opencontainers.image.url="https://github.com/ASFHyP3/harmony-opera-rtc-reproject"
+LABEL org.opencontainers.image.source="https://github.com/ASFHyP3/harmony-opera-rtc-reproject"
+LABEL org.opencontainers.image.documentation="https://harmony.earthdata.nasa.gov/"
+
 WORKDIR /home/mambauser
 
 COPY --chown=$MAMBA_USER:$MAMBA_USER environment.yml /tmp/environment.yml
