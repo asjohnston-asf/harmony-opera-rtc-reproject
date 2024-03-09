@@ -13,8 +13,6 @@ on:
 jobs:
   call-version-info-workflow:
     # Docs: https://github.com/ASFHyP3/actions
-    with:
-      python_version: 3.12
     uses: ASFHyP3/actions/.github/workflows/reusable-version-info.yml@v0.11.0
 
   call-docker-ghcr-workflow:
