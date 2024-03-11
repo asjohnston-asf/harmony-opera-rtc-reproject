@@ -33,8 +33,6 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
         result = item.clone()
         result.assets = {}
 
-        # Create a temporary dir for processing we may do
-        workdir = mkdtemp()
         try:
             # Get the data file
             asset = next(v for k, v in item.assets.items() if 'data' in (v.roles or []))
@@ -45,17 +43,16 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
                 assert response.status_code == 307
                 asset.href = response.headers['Location']
 
-            input_filename = download(asset.href, workdir, logger=self.logger, access_token=self.message.accessToken)
+            input_filename = download(asset.href, '.', logger=self.logger, access_token=self.message.accessToken)
 
             crs = self.message.format.process('crs')
 
             print(f'Processing item {item.id}')
 
             # Stage the output file with a conventional filename
-            output_filename = generate_output_filename(asset.href, ext=None, variable_subset=None,
-                                                       is_regridded=False, is_subsetted=False)
-            gdal.Warp(output_filename, input_filename, dstSRS=crs, format='COG', creationOptions=['NUM_THREADS=all_cpus'], multithread=True)
-            url = stage(input_filename, output_filename, 'image/tiff', location=self.message.stagingLocation,
+            output_filename = os.path.splitext(os.path.basename(input_filename))[0] + '_reprojected.tif'
+            gdal.Warp(output_filename, input_filename, dstSRS=crs, format='COG', multithread=True)
+            url = stage(output_filename, output_filename, 'image/tiff', location=self.message.stagingLocation,
                         logger=self.logger)
 
             # Update the STAC record
@@ -67,7 +64,7 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
             return result
         finally:
             # Clean up any intermediate resources
-            shutil.rmtree(workdir)
+            pass
 
 
 def run_cli(args):
