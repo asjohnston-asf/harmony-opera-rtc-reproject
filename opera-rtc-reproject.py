@@ -32,35 +32,34 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
 
         result = item.clone()
         result.assets = {}
-
         try:
             # Get the data file
-            asset = next(v for k, v in item.assets.items() if 'data' in (v.roles or []))
+            for (key, asset) in item.assets.items():
+                if ('data' in (asset.roles or [])) and asset.href.endswith('tif'):
+                    url = asset.href
+                    if url.startswith('https://datapool-test.asf.alaska.edu/'):
+                        response = requests.get(url, allow_redirects=False)
+                        assert response.status_code == 307
+                        asset.href = response.headers['Location']
 
-            url = asset.href
-            if url.startswith('https://datapool-test.asf.alaska.edu/'):
-                response = requests.get(url, allow_redirects=False)
-                assert response.status_code == 307
-                asset.href = response.headers['Location']
+                    input_filename = download(asset.href, '.', logger=self.logger, access_token=self.message.accessToken)
 
-            input_filename = download(asset.href, '.', logger=self.logger, access_token=self.message.accessToken)
+                    if os.path.splitext(input_filename)[-1] == 'tif':
+                        crs = self.message.format.process('crs')
 
-            crs = self.message.format.process('crs')
+                        print(f'Processing item {item.id}')
+                        # Stage the output file with a conventional filename
+                        output_filename = os.path.splitext(os.path.basename(input_filename))[0] + '_reprojected.tif'
+                        gdal.Warp(output_filename, input_filename, dstSRS=crs, format='COG', multithread=True, creationOptions=['NUM_THREADS=all_cpus'])
+                        url = stage(output_filename, output_filename, 'image/tiff', location=self.message.stagingLocation,
+                                    logger=self.logger)
 
-            print(f'Processing item {item.id}')
+                        # Update the STAC record
+                        result.assets[key] = Asset(url, title=output_filename, media_type='image/tiff', roles=['data'])
+                        # Other metadata updates may be appropriate, such as result.bbox and result.geometry
+                        # if a spatial subset was performed
 
-            # Stage the output file with a conventional filename
-            output_filename = os.path.splitext(os.path.basename(input_filename))[0] + '_reprojected.tif'
-            gdal.Warp(output_filename, input_filename, dstSRS=crs, format='COG', multithread=True, creationOptions=['NUM_THREADS=all_cpus'])
-            url = stage(output_filename, output_filename, 'image/tiff', location=self.message.stagingLocation,
-                        logger=self.logger)
-
-            # Update the STAC record
-            result.assets['data'] = Asset(url, title=output_filename, media_type='image/tiff', roles=['data'])
-            # Other metadata updates may be appropriate, such as result.bbox and result.geometry
-            # if a spatial subset was performed
-
-            # Return the STAC record
+                # Return the STAC record
             return result
         finally:
             # Clean up any intermediate resources
