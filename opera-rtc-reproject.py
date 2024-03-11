@@ -3,7 +3,9 @@ import shutil
 import os
 import requests
 from tempfile import mkdtemp
+import pystac
 from pystac import Asset
+from osgeo import gdal
 
 import harmony
 from harmony.util import generate_output_filename, stage, download
@@ -45,20 +47,14 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
 
             input_filename = download(asset.href, workdir, logger=self.logger, access_token=self.message.accessToken)
 
-            # # Mark any fields the service processes so later services do not repeat work
-            # dpi = self.message.format.process('dpi')
-            # # Variable subsetting
-            # variables = source.process('variables')
+            crs = self.message.format.process('crs')
 
-            # # Do the work here!
-            # var_names = [v.name for v in variables]
             print(f'Processing item {item.id}')
-            # working_filename = os.path.join(workdir, 'tmp.txt')
-            # shutil.copyfile(input_filename, working_filename)
 
             # Stage the output file with a conventional filename
             output_filename = generate_output_filename(asset.href, ext=None, variable_subset=None,
                                                        is_regridded=False, is_subsetted=False)
+            gdal.Warp(output_filename, input_filename, dstSRS=crs, format='COG', creationOptions=['NUM_THREADS=all_cpus'], multithread=True)
             url = stage(input_filename, output_filename, 'image/tiff', location=self.message.stagingLocation,
                         logger=self.logger)
 
