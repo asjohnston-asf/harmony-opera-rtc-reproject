@@ -1,8 +1,13 @@
 import argparse
+import shutil
+import os
+import requests
+from tempfile import mkdtemp
+from pystac import Asset
 
 import harmony
-import pystac
-from harmony.util import stage
+from harmony.util import generate_output_filename, stage, download
+
 
 class ExampleAdapter(harmony.BaseHarmonyAdapter):
 
@@ -22,14 +27,51 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
         pystac.Item
             a STAC catalog whose metadata and assets describe the service output
         """
+
         result = item.clone()
         result.assets = {}
 
-        filename = 'cat.jpg'
-        mimetype = 'image/jpeg'
-        url = stage(filename, filename, mime=mimetype, location=self.message.stagingLocation, logger=self.logger)
-        result.assets['data'] = pystac.Asset(url, title=filename, media_type=mimetype, roles=['data'])
-        return result
+        # Create a temporary dir for processing we may do
+        workdir = mkdtemp()
+        try:
+            # Get the data file
+            asset = next(v for k, v in item.assets.items() if 'data' in (v.roles or []))
+
+            url = asset.href
+            if url.startswith('https://datapool-test.asf.alaska.edu/'):
+                response = requests.get(url, allow_redirects=False)
+                assert response.status_code == 307
+                asset.href = response.headers['Location']
+
+            input_filename = download(asset.href, workdir, logger=self.logger, access_token=self.message.accessToken)
+
+            # # Mark any fields the service processes so later services do not repeat work
+            # dpi = self.message.format.process('dpi')
+            # # Variable subsetting
+            # variables = source.process('variables')
+
+            # # Do the work here!
+            # var_names = [v.name for v in variables]
+            print(f'Processing item {item.id}')
+            # working_filename = os.path.join(workdir, 'tmp.txt')
+            # shutil.copyfile(input_filename, working_filename)
+
+            # Stage the output file with a conventional filename
+            output_filename = generate_output_filename(asset.href, ext=None, variable_subset=None,
+                                                       is_regridded=False, is_subsetted=False)
+            url = stage(input_filename, output_filename, 'image/tiff', location=self.message.stagingLocation,
+                        logger=self.logger)
+
+            # Update the STAC record
+            result.assets['data'] = Asset(url, title=output_filename, media_type='image/tiff', roles=['data'])
+            # Other metadata updates may be appropriate, such as result.bbox and result.geometry
+            # if a spatial subset was performed
+
+            # Return the STAC record
+            return result
+        finally:
+            # Clean up any intermediate resources
+            shutil.rmtree(workdir)
 
 
 def run_cli(args):
