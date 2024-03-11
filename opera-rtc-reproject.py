@@ -1,19 +1,18 @@
 import argparse
-import shutil
 import os
-import requests
-from tempfile import mkdtemp
-import pystac
-from pystac import Asset
-from osgeo import gdal
+import tempfile
 
 import harmony
-from harmony.util import generate_output_filename, stage, download
+import pystac
+from osgeo import gdal
+
+
+gdal.UseExceptions()
 
 
 class ExampleAdapter(harmony.BaseHarmonyAdapter):
 
-    def process_item(self, item: pystac.Item, source) -> pystac.Item:
+    def process_item(self, item: pystac.Item, source: harmony.message.Source) -> pystac.Item:
         """
         Processes a single input item.
 
@@ -29,41 +28,45 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
         pystac.Item
             a STAC catalog whose metadata and assets describe the service output
         """
+        self.logger.debug(f'Processing item {item.id}')
+        crs = self.message.format.process('crs')
 
         result = item.clone()
         result.assets = {}
-        try:
-            # Get the data file
-            for (key, asset) in item.assets.items():
-                if ('data' in (asset.roles or [])) and asset.href.endswith('tif'):
-                    url = asset.href
-                    if url.startswith('https://datapool-test.asf.alaska.edu/'):
-                        response = requests.get(url, allow_redirects=False)
-                        assert response.status_code == 307
-                        asset.href = response.headers['Location']
 
-                    input_filename = download(asset.href, '.', logger=self.logger, access_token=self.message.accessToken)
+        for key, asset in item.assets.items():
+            if 'data' in (asset.roles or []) and asset.href.endswith('tif'):
+                self.logger.debug(f'Reprojecting {asset.title} to {crs}')
 
-                    crs = self.message.format.process('crs')
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    input_filename = harmony.util.download(
+                        url=asset.href,
+                        destination_dir=temp_dir,
+                        logger=self.logger,
+                        access_token=self.message.accessToken,
+                    )
 
-                    print(f'Processing item {item.id}')
-                    # Stage the output file with a conventional filename
                     # TODO: Investigate proper way of generating filename. Look into `generate_output_filename` in harmony-service-lib-py.
                     output_filename = os.path.splitext(os.path.basename(asset.title))[0] + '_reprojected.tif'
-                    gdal.Warp(output_filename, input_filename, dstSRS=crs, format='COG', multithread=True, creationOptions=['NUM_THREADS=all_cpus'])
-                    url = stage(output_filename, output_filename, 'image/tiff', location=self.message.stagingLocation,
-                                logger=self.logger)
+                    gdal.Warp(
+                        destNameOrDestDS=f'{temp_dir}/{output_filename}',
+                        srcDSOrSrcDSTab=input_filename,
+                        dstSRS=crs,
+                        format='COG',
+                        multithread=True,
+                        creationOptions=['NUM_THREADS=all_cpus'],
+                    )
+                    url = harmony.util.stage(
+                        local_filename=f'{temp_dir}/{output_filename}',
+                        remote_filename=output_filename,
+                        mime='image/tiff',
+                        location=self.message.stagingLocation,
+                        logger=self.logger,
+                    )
 
-                    # Update the STAC record
-                    result.assets[key] = Asset(url, title=output_filename, media_type='image/tiff', roles=['data'])
-                    # Other metadata updates may be appropriate, such as result.bbox and result.geometry
-                    # if a spatial subset was performed
+                result.assets[key] = pystac.Asset(url, title=output_filename, media_type='image/tiff', roles=['data'])
 
-                # Return the STAC record
-            return result
-        finally:
-            # Clean up any intermediate resources
-            print("Finished Processing")
+        return result
 
 
 def run_cli(args):
@@ -101,7 +104,7 @@ def main():
 
     args = parser.parse_args()
 
-    if (harmony.is_harmony_cli(args)):
+    if harmony.is_harmony_cli(args):
         harmony.run_cli(parser, args, ExampleAdapter)
     else:
         run_cli(args)
