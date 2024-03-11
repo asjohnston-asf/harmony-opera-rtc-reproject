@@ -51,7 +51,7 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
 
             # Stage the output file with a conventional filename
             output_filename = os.path.splitext(os.path.basename(input_filename))[0] + '_reprojected.tif'
-            gdal.Warp(output_filename, input_filename, dstSRS=crs, format='COG', multithread=True)
+            gdal.Warp(output_filename, input_filename, dstSRS=crs, format='COG', multithread=True, creationOptions=['NUM_THREADS=all_cpus'])
             url = stage(output_filename, output_filename, 'image/tiff', location=self.message.stagingLocation,
                         logger=self.logger)
 
