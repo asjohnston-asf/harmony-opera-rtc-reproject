@@ -28,7 +28,7 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
         pystac.Item
             a STAC catalog whose metadata and assets describe the service output
         """
-        self.logger.debug(f'Processing item {item.id}')
+        self.logger.info(f'Processing item {item.id}')
         crs = self.message.format.process('crs')
 
         result = item.clone()
@@ -36,7 +36,7 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
 
         for key, asset in item.assets.items():
             if 'data' in (asset.roles or []) and asset.href.endswith('tif'):
-                self.logger.debug(f'Reprojecting {asset.title} to {crs}')
+                self.logger.info(f'Reprojecting {asset.title} to {crs}')
 
                 with tempfile.TemporaryDirectory() as temp_dir:
                     input_filename = harmony.util.download(
