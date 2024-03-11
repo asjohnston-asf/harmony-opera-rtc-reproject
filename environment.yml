@@ -1,20 +1,12 @@
-name: harmony-opera-rtc-reproject
+name: opera-rtc-reproject
 channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - python>=3.8
+  - python>=3.12
   - pip
-  # For packaging, and testing
-  - flake8
-  - flake8-import-order
-  - flake8-blind-except
-  - flake8-builtins
-  - setuptools
+  - gdal
+  - pystac
   - setuptools_scm
-  - wheel
-  - pytest
-  - pytest-console-scripts
-  - pytest-cov
-  # For running
-  - hyp3lib>=3,<4
+  - pip:
+      - harmony-service-lib

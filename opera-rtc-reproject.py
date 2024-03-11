@@ -1,31 +1,14 @@
-"""
-==================
-example_service.py
-==================
-
-An example service adapter implementation and example CLI parser
-"""
-
 import argparse
-import shutil
-import os
-from tempfile import mkdtemp
-from pystac import Asset
 
 import harmony
-from harmony.util import generate_output_filename, stage, download
+import pystac
+from harmony.util import stage
 
 class ExampleAdapter(harmony.BaseHarmonyAdapter):
-    """
-    Shows an example of what a service adapter implementation looks like
-    """
-    def process_item(self, item, source):
-        """
-        Processes a single input item.  Services that are not aggregating multiple input files
-        should prefer to implement this method rather than #invoke
 
-        This example copies its input to the output, marking "dpi" and "variables" message
-        attributes as having been processed
+    def process_item(self, item: pystac.Item, source) -> pystac.Item:
+        """
+        Processes a single input item.
 
         Parameters
         ----------
@@ -42,40 +25,11 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
         result = item.clone()
         result.assets = {}
 
-        # Create a temporary dir for processing we may do
-        workdir = mkdtemp()
-        try:
-            # Get the data file
-            asset = next(v for k, v in item.assets.items() if 'data' in (v.roles or []))
-            input_filename = download(asset.href, workdir, logger=self.logger, access_token=self.message.accessToken)
-
-            # Mark any fields the service processes so later services do not repeat work
-            dpi = self.message.format.process('dpi')
-            # Variable subsetting
-            variables = source.process('variables')
-
-            # Do the work here!
-            var_names = [v.name for v in variables]
-            print('Processing item %s, vars=[%s]' % (item.id, ', '.join(var_names)))
-            working_filename = os.path.join(workdir, 'tmp.txt')
-            shutil.copyfile(input_filename, working_filename)
-
-            # Stage the output file with a conventional filename
-            output_filename = generate_output_filename(asset.href, ext=None, variable_subset=None,
-                                                       is_regridded=False, is_subsetted=False)
-            url = stage(working_filename, output_filename, 'text/plain', location=self.message.stagingLocation,
-                        logger=self.logger)
-
-            # Update the STAC record
-            result.assets['data'] = Asset(url, title=output_filename, media_type='text/plain', roles=['data'])
-            # Other metadata updates may be appropriate, such as result.bbox and result.geometry
-            # if a spatial subset was performed
-
-            # Return the STAC record
-            return result
-        finally:
-            # Clean up any intermediate resources
-            shutil.rmtree(workdir)
+        filename = 'cat.jpg'
+        mimetype = 'image/jpeg'
+        url = stage(filename, filename, mime=mimetype, location=self.message.stagingLocation, logger=self.logger)
+        result.assets['data'] = pystac.Asset(url, title=filename, media_type=mimetype, roles=['data'])
+        return result
 
 
 def run_cli(args):

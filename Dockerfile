@@ -1,4 +1,4 @@
-FROM ghcr.io/osgeo/gdal:alpine-small-latest
+FROM mambaorg/micromamba:latest
 
 # For opencontainers label definitions, see:
 #    https://github.com/opencontainers/image-spec/blob/master/annotations.md
@@ -9,32 +9,16 @@ LABEL org.opencontainers.image.authors="tools-bot <UAF-asf-apd@alaska.edu>"
 LABEL org.opencontainers.image.licenses="BSD-3-Clause"
 LABEL org.opencontainers.image.url="https://github.com/ASFHyP3/harmony-opera-rtc-reproject"
 LABEL org.opencontainers.image.source="https://github.com/ASFHyP3/harmony-opera-rtc-reproject"
-LABEL org.opencontainers.image.documentation="https://hyp3-docs.asf.alaska.edu"
+LABEL org.opencontainers.image.documentation="https://harmony.earthdata.nasa.gov/"
 
-ARG DEBIAN_FRONTEND=noninteractive
-ENV PYTHONDONTWRITEBYTECODE=true
+WORKDIR /home/mambauser
 
-RUN apk add bash build-base gcc g++ gfortran openblas-dev cmake python3 python3-dev libffi-dev netcdf-dev libxml2-dev libxslt-dev libjpeg-turbo-dev zlib-dev hdf5 hdf5-dev gdal-dev gdal-tools
+COPY --chown=$MAMBA_USER:$MAMBA_USER environment.yml /tmp/environment.yml
 
-RUN python -m venv /opt/venv
+RUN micromamba install -y -n base -f /tmp/environment.yml && \
+    micromamba clean --all --yes
 
-ENV PATH="/opt/venv/bin:$PATH"
+COPY --chown=$MAMBA_USER:$MAMBA_USER opera-rtc-reproject.py /home/mambauser/opera-rtc-reproject.py
+COPY --chown=$MAMBA_USER:$MAMBA_USER cat.jpg /home/mambauser/cat.jpg
 
-RUN python -m ensurepip --upgrade
-RUN pip3 install gdal numpy netCDF4 matplotlib harmony-service-lib
-
-# Create a new user
-RUN adduser -D -s /bin/sh -h /home/dockeruser -g "" -u 1000 dockeruser
-USER dockeruser
-ENV HOME /home/dockeruser
-
-USER root
-RUN mkdir -p /worker && chown dockeruser /worker
-USER dockeruser
-WORKDIR /worker
-
-COPY --chown=dockeruser opera-rtc-reproject.py .
-
-# Run the service
-ENTRYPOINT ["python3", "-m", "opera-rtc-reproject"]
-CMD ["-h"]
+ENTRYPOINT ["/usr/local/bin/_entrypoint.sh", "python", "-m", "opera-rtc-reproject"]
