@@ -1,12 +1,18 @@
 import argparse
+import os
+import tempfile
 
 import harmony
 import pystac
-from harmony.util import stage
+from osgeo import gdal
+
+
+gdal.UseExceptions()
+
 
 class ExampleAdapter(harmony.BaseHarmonyAdapter):
 
-    def process_item(self, item: pystac.Item, source) -> pystac.Item:
+    def process_item(self, item: pystac.Item, source: harmony.message.Source) -> pystac.Item:
         """
         Processes a single input item.
 
@@ -22,13 +28,44 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
         pystac.Item
             a STAC catalog whose metadata and assets describe the service output
         """
+        self.logger.info(f'Processing item {item.id}')
+        crs = self.message.format.process('crs')
+
         result = item.clone()
         result.assets = {}
 
-        filename = 'cat.jpg'
-        mimetype = 'image/jpeg'
-        url = stage(filename, filename, mime=mimetype, location=self.message.stagingLocation, logger=self.logger)
-        result.assets['data'] = pystac.Asset(url, title=filename, media_type=mimetype, roles=['data'])
+        for key, asset in item.assets.items():
+            if 'data' in (asset.roles or []) and asset.href.endswith('tif'):
+                self.logger.info(f'Reprojecting {asset.title} to {crs}')
+
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    input_filename = harmony.util.download(
+                        url=asset.href,
+                        destination_dir=temp_dir,
+                        logger=self.logger,
+                        access_token=self.message.accessToken,
+                    )
+
+                    # TODO: Investigate proper way of generating filename. Look into `generate_output_filename` in harmony-service-lib-py.
+                    output_filename = os.path.splitext(os.path.basename(asset.title))[0] + '_reprojected.tif'
+                    gdal.Warp(
+                        destNameOrDestDS=f'{temp_dir}/{output_filename}',
+                        srcDSOrSrcDSTab=input_filename,
+                        dstSRS=crs,
+                        format='COG',
+                        multithread=True,
+                        creationOptions=['NUM_THREADS=all_cpus'],
+                    )
+                    url = harmony.util.stage(
+                        local_filename=f'{temp_dir}/{output_filename}',
+                        remote_filename=output_filename,
+                        mime='image/tiff',
+                        location=self.message.stagingLocation,
+                        logger=self.logger,
+                    )
+
+                result.assets[key] = pystac.Asset(url, title=output_filename, media_type='image/tiff', roles=['data'])
+
         return result
 
 
@@ -67,7 +104,7 @@ def main():
 
     args = parser.parse_args()
 
-    if (harmony.is_harmony_cli(args)):
+    if harmony.is_harmony_cli(args):
         harmony.run_cli(parser, args, ExampleAdapter)
     else:
         run_cli(args)
