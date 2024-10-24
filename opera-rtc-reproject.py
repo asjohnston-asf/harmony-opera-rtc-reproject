@@ -2,7 +2,7 @@ import argparse
 import tempfile
 from pathlib import Path
 
-import harmony
+import harmony_service_lib
 import numpy as np
 import pystac
 from osgeo import gdal
@@ -99,9 +99,9 @@ def create_browse_image(co_pol_path: Path, cross_pol_path: Path, working_dir: Pa
     return browse_path
 
 
-class ExampleAdapter(harmony.BaseHarmonyAdapter):
+class ExampleAdapter(harmony_service_lib.BaseHarmonyAdapter):
 
-    def process_item(self, item: pystac.Item, source: harmony.message.Source) -> pystac.Item:
+    def process_item(self, item: pystac.Item, source: harmony_service_lib.message.Source) -> pystac.Item:
         """
         Processes a single input item.
 
@@ -109,7 +109,7 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
         ----------
         item : pystac.Item
             the item that should be processed
-        source : harmony.message.Source
+        source : harmony_service_lib.message.Source
             the input source defining the variables, if any, to subset from the item
 
         Returns
@@ -123,14 +123,14 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
 
             for asset in item.assets.values():
                 if 'data' in (asset.roles or []) and asset.href.endswith('VV.tif'):
-                    co_pol_filename = harmony.util.download(
+                    co_pol_filename = harmony_service_lib.util.download(
                         url=asset.href,
                         destination_dir=temp_dir,
                         logger=self.logger,
                         access_token=self.message.accessToken,
                     )
                 if 'data' in (asset.roles or []) and asset.href.endswith('VH.tif'):
-                    cross_pol_filename = harmony.util.download(
+                    cross_pol_filename = harmony_service_lib.util.download(
                         url=asset.href,
                         destination_dir=temp_dir,
                         logger=self.logger,
@@ -138,7 +138,7 @@ class ExampleAdapter(harmony.BaseHarmonyAdapter):
                     )
 
             rgb_path = create_browse_image(Path(co_pol_filename), Path(cross_pol_filename), Path(temp_dir))
-            url = harmony.util.stage(
+            url = harmony_service_lib.util.stage(
                 local_filename=str(rgb_path),
                 remote_filename=rgb_path.stem,
                 mime='image/tiff',
@@ -185,12 +185,12 @@ def main():
     """
     parser = argparse.ArgumentParser(prog='example', description='Run an example service')
 
-    harmony.setup_cli(parser)
+    harmony_service_lib.setup_cli(parser)
 
     args = parser.parse_args()
 
-    if harmony.is_harmony_cli(args):
-        harmony.run_cli(parser, args, ExampleAdapter)
+    if harmony_service_lib.is_harmony_cli(args):
+        harmony_service_lib.run_cli(parser, args, ExampleAdapter)
     else:
         run_cli(args)
 
